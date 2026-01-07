@@ -64,35 +64,101 @@ def get_stock_info(symbol: str) -> Optional[Dict[str, Any]]:
 
 @st.cache_data(ttl=30)
 def get_current_price(symbol: str) -> Optional[Dict[str, Any]]:
-    """Anlık fiyat bilgisi"""
+    """Anlık fiyat bilgisi (Robust)"""
     try:
         ticker = yf.Ticker(symbol)
-        info = ticker.info
 
+        # 1. Yöntem: fast_info (Daha hızlı ve güvenilir)
+        try:
+            fast_info = ticker.fast_info
+            price = fast_info.last_price
+            prev_close = fast_info.previous_close
+
+            if price and prev_close:
+                change = price - prev_close
+                change_percent = (change / prev_close) * 100
+            else:
+                change = 0
+                change_percent = 0
+
+            return {
+                'price': price,
+                'previous_close': prev_close,
+                'change': change,
+                'change_percent': change_percent,
+                'volume': getattr(fast_info, 'last_volume', 0),
+                'market_cap': getattr(fast_info, 'market_cap', 0),
+                'day_high': getattr(fast_info, 'day_high', price),
+                'day_low': getattr(fast_info, 'day_low', price),
+                'fifty_two_week_high': getattr(fast_info, 'year_high', price),
+                'fifty_two_week_low': getattr(fast_info, 'year_low', price),
+                'name': symbol, # fast_info'da isim olmayabilir
+                'currency': getattr(fast_info, 'currency', 'USD')
+            }
+        except Exception:
+            pass
+
+        # 2. Yöntem: info (Klasik, detaylı ama yavaş/flaky)
+        info = ticker.info
         current_price = info.get('currentPrice') or info.get('regularMarketPrice')
         previous_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
 
-        if current_price and previous_close:
-            change = current_price - previous_close
-            change_percent = (change / previous_close) * 100
-        else:
-            change = 0
-            change_percent = 0
+        if current_price:
+            if previous_close:
+                change = current_price - previous_close
+                change_percent = (change / previous_close) * 100
+            else:
+                change = 0
+                change_percent = 0
 
-        return {
-            'price': current_price,
-            'previous_close': previous_close,
-            'change': change,
-            'change_percent': change_percent,
-            'volume': info.get('volume') or info.get('regularMarketVolume'),
-            'market_cap': info.get('marketCap'),
-            'day_high': info.get('dayHigh') or info.get('regularMarketDayHigh'),
-            'day_low': info.get('dayLow') or info.get('regularMarketDayLow'),
-            'fifty_two_week_high': info.get('fiftyTwoWeekHigh'),
-            'fifty_two_week_low': info.get('fiftyTwoWeekLow'),
-            'name': info.get('shortName') or info.get('longName') or symbol,
-            'currency': info.get('currency', 'USD')
-        }
+            return {
+                'price': current_price,
+                'previous_close': previous_close,
+                'change': change,
+                'change_percent': change_percent,
+                'volume': info.get('volume') or info.get('regularMarketVolume'),
+                'market_cap': info.get('marketCap'),
+                'day_high': info.get('dayHigh') or info.get('regularMarketDayHigh'),
+                'day_low': info.get('dayLow') or info.get('regularMarketDayLow'),
+                'fifty_two_week_high': info.get('fiftyTwoWeekHigh'),
+                'fifty_two_week_low': info.get('fiftyTwoWeekLow'),
+                'name': info.get('shortName') or info.get('longName') or symbol,
+                'currency': info.get('currency', 'USD')
+            }
+
+        # 3. Yöntem: History (Son çare)
+        hist = ticker.history(period="1d")
+        if not hist.empty:
+            row = hist.iloc[-1]
+            price = float(row['Close'])
+            # Previous close için 2 günlük almamız lazımdı ama 1d en azından fiyatı kurtarır
+            # 2 günlük deneyelim
+            hist2 = ticker.history(period="5d")
+            if len(hist2) > 1:
+                prev_close = float(hist2.iloc[-2]['Close'])
+                change = price - prev_close
+                change_percent = (change / prev_close) * 100
+            else:
+                prev_close = price
+                change = 0
+                change_percent = 0
+
+            return {
+                'price': price,
+                'previous_close': prev_close,
+                'change': change,
+                'change_percent': change_percent,
+                'volume': int(row['Volume']),
+                'market_cap': 0,
+                'day_high': float(row['High']),
+                'day_low': float(row['Low']),
+                'fifty_two_week_high': 0,
+                'fifty_two_week_low': 0,
+                'name': symbol,
+                'currency': 'USD'
+            }
+
+        return None
     except Exception:
         return None
 
