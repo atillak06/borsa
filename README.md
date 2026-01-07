@@ -14,7 +14,7 @@ Türk ve ABD borsaları ile kripto para piyasalarını takip etmek için gelişt
 
 ## 📋 Gereksinimler
 
-- Python 3.9+
+- Python 3.11+
 - pip paket yöneticisi
 
 ## 🛠️ Kurulum
