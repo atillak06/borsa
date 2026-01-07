@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, copilot/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+          
+      - name: Lint with Python syntax check
+        run: |
+          python -m py_compile app.py
+          python -m py_compile config.py
+          python -m py_compile services/market_data.py
+          python -m py_compile services/analysis.py
+          python -m py_compile services/portfolio.py
+          python -m py_compile services/nizami_cedid_analysis.py
+          python -m py_compile components/charts.py
+          python -m py_compile components/sidebar.py
+          python -m py_compile components/tables.py
+          python -m py_compile database/db.py
+          python -m py_compile utils/helpers.py
+          
+      - name: Run import tests
+        run: |
+          python -c "from config import DEFAULT_SYMBOLS, PERIODS"
+          python -c "from services.analysis import add_all_indicators"
+          python -c "from services.nizami_cedid_analysis import Signal, analyze_single_stock"
+          python -c "from utils.helpers import format_large_number, detect_market_type"
