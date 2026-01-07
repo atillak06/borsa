@@ -132,7 +132,23 @@ def render_analysis_page():
         st.error(f"'{symbol}' için veri bulunamadı")
         return
 
-    df = add_all_indicators(df)
+    # Sadece seçili indikatörleri hesapla
+    has_sma = bool(indicators.get('sma'))
+    has_bollinger = bool(indicators.get('bollinger'))
+    has_rsi = bool(indicators.get('rsi'))
+    has_macd = bool(indicators.get('macd'))
+
+    # optimize edilmiş fonksiyonu kullan, include_all=False
+    df = add_all_indicators(
+        df,
+        include_all=False,
+        sma=has_sma,
+        # bollinger argümanı add_all_indicators'da 'bb' olarak tanımlı
+        rsi=has_rsi,
+        macd=has_macd,
+        # Diğerleri varsayılan olarak False
+        bb=has_bollinger
+    )
 
     # Fiyat kartı
     price_info = get_current_price(symbol)
@@ -144,10 +160,19 @@ def render_analysis_page():
     # Ana grafik
     fig = create_candlestick_chart(df, f"{symbol} - Teknik Analiz")
 
-    # SMA ekle
+    # SMA ekle - add_all_indicators zaten hesapladı ama
+    # create_candlestick_chart veya add_sma_to_chart df içinde arıyor olabilir.
+    # add_all_indicators sabit periyotlar hesaplıyor (20, 50, 200).
+    # Kullanıcı seçimi 'indicators' dict içinde ve custom periyotlar olabilir.
+    # add_all_indicators'ın SMA'sı sabit (20, 50, 200). Sidebar'dan gelen 'sma' listesi ise [20, 50, 200] varsayılan.
+    # Eğer sidebar farklı periyot verirse manuel hesaplama yine gerekli.
+
     if indicators.get('sma'):
         for period_val in indicators['sma']:
-            df[f'SMA_{period_val}'] = df['Close'].rolling(window=period_val).mean()
+            col_name = f'SMA_{period_val}'
+            # Eğer add_all_indicators hesaplamadıysa veya farklı periyot ise hesapla
+            if col_name not in df.columns:
+                df[col_name] = df['Close'].rolling(window=period_val).mean()
         fig = add_sma_to_chart(fig, df, indicators['sma'])
 
     # Bollinger ekle
@@ -211,11 +236,8 @@ def render_macd_pasa_page():
         symbols = DEFAULT_SYMBOLS[market][:num_stocks]
 
         with st.spinner(f"{len(symbols)} hisse analiz ediliyor..."):
-            results = analyze_multiple_stocks(
-                symbols,
-                get_stock_data,
-                get_current_price
-            )
+            # Fonksiyonları parametre olarak geçmeye gerek yok, içeride optimize edilmiş fonksiyonlar kullanılıyor
+            results = analyze_multiple_stocks(symbols)
 
         if not results:
             st.warning("Yeterli veri bulunamadı. En az 610 günlük veri gereklidir.")

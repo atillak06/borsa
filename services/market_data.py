@@ -112,21 +112,86 @@ def get_financials(symbol: str) -> Optional[Dict[str, pd.DataFrame]]:
 
 
 @st.cache_data(ttl=60)
+def get_batch_stock_data(symbols: list, period: str = "1y", interval: str = "1d") -> pd.DataFrame:
+    """Birden fazla hisse için geçmiş verileri çeker"""
+    try:
+        if not symbols:
+            return pd.DataFrame()
+        # Tickers string'e çevir
+        # yf.download list kabul eder ama string daha güvenli olabilir bazı versiyonlarda
+        # threads=True varsayılandır ama explicit olalım
+        df = yf.download(symbols, period=period, interval=interval, group_by='ticker', progress=False, threads=True)
+        return df
+    except Exception as e:
+        st.error(f"Toplu veri çekilemedi: {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=60)
 def get_multiple_prices(symbols: list) -> pd.DataFrame:
-    """Birden fazla sembol için fiyat bilgisi"""
-    data = []
-    for symbol in symbols:
-        price_info = get_current_price(symbol)
-        if price_info:
-            data.append({
-                'Sembol': symbol,
-                'İsim': price_info['name'],
-                'Fiyat': price_info['price'],
-                'Değişim': price_info['change'],
-                'Değişim %': price_info['change_percent'],
-                'Hacim': price_info['volume']
-            })
-    return pd.DataFrame(data)
+    """Birden fazla sembol için fiyat bilgisi (Optimize edilmiş)"""
+    if not symbols:
+        return pd.DataFrame()
+
+    try:
+        # Son 5 günlük veriyi çek (garanti olsun diye haftasonları vs)
+        df = yf.download(symbols, period="5d", interval="1d", group_by='ticker', progress=False, threads=True)
+
+        data = []
+        is_multi = len(symbols) > 1 and isinstance(df.columns, pd.MultiIndex)
+
+        for symbol in symbols:
+            try:
+                stock_df = None
+                if is_multi:
+                    if symbol in df.columns.levels[0]:
+                        stock_df = df[symbol]
+                elif len(symbols) == 1:
+                     stock_df = df
+                # Tek sembol girilip multiindex dönmediği durum (ama liste verdiysek ve 1 tane ise genelde düz döner)
+                # Eğer birden fazla sembol varsa ama sadece 1 tanesi başarılı olduysa yfinance bazen düz dönebilir.
+                # Bunu handle etmek karmaşık olabilir, şimdilik basit tutuyoruz.
+
+                if stock_df is None or stock_df.empty:
+                    continue
+
+                # Drop NA (son günler boş gelebilir bazen)
+                stock_df = stock_df.dropna(how='all')
+
+                if stock_df.empty:
+                    continue
+
+                # Son veriyi al
+                latest = stock_df.iloc[-1]
+
+                if len(stock_df) > 1:
+                    prev = stock_df.iloc[-2]
+                    price = float(latest['Close'])
+                    prev_close = float(prev['Close'])
+                    change = price - prev_close
+                    change_percent = (change / prev_close) * 100 if prev_close != 0 else 0
+                else:
+                    price = float(latest['Close'])
+                    change = 0.0
+                    change_percent = 0.0
+
+                volume = int(latest['Volume']) if 'Volume' in latest else 0
+
+                data.append({
+                    'Sembol': symbol,
+                    'İsim': symbol,  # İsim bilgisi için ekstra API çağrısı yapmıyoruz
+                    'Fiyat': price,
+                    'Değişim': change,
+                    'Değişim %': change_percent,
+                    'Hacim': volume
+                })
+            except Exception:
+                continue
+
+        return pd.DataFrame(data)
+    except Exception as e:
+        print(f"Hata: {e}")
+        return pd.DataFrame()
 
 
 def search_symbol(query: str) -> list:

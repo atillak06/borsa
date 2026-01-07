@@ -90,42 +90,66 @@ def calculate_obv(df: pd.DataFrame) -> pd.Series:
     return obv
 
 
-def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """Tüm göstergeleri DataFrame'e ekler"""
+def add_all_indicators(df: pd.DataFrame, include_all: bool = True,
+                      sma: bool = True, ema: bool = True,
+                      rsi: bool = True, macd: bool = True,
+                      bb: bool = True, atr: bool = True,
+                      stoch: bool = True, obv: bool = True) -> pd.DataFrame:
+    """Tüm göstergeleri DataFrame'e ekler
+
+    Args:
+        df: Veri çerçevesi
+        include_all: Tüm göstergeleri hesapla (geriye dönük uyumluluk için True)
+        sma, ema, rsi, ... : Belirli göstergeleri açıp kapatmak için flaglar (include_all False ise kullanılır)
+    """
     df = df.copy()
 
+    # Eğer include_all True ise her şey hesaplanır (varsayılan)
+    # Eğer False ise sadece True olanlar hesaplanır
+
+    should_calc = lambda x: include_all or x
+
     # Hareketli ortalamalar
-    df['SMA_20'] = calculate_sma(df, 20)
-    df['SMA_50'] = calculate_sma(df, 50)
-    df['SMA_200'] = calculate_sma(df, 200)
-    df['EMA_12'] = calculate_ema(df, 12)
-    df['EMA_26'] = calculate_ema(df, 26)
+    if should_calc(sma):
+        df['SMA_20'] = calculate_sma(df, 20)
+        df['SMA_50'] = calculate_sma(df, 50)
+        df['SMA_200'] = calculate_sma(df, 200)
+
+    if should_calc(ema):
+        df['EMA_12'] = calculate_ema(df, 12)
+        df['EMA_26'] = calculate_ema(df, 26)
 
     # RSI
-    df['RSI'] = calculate_rsi(df)
+    if should_calc(rsi):
+        df['RSI'] = calculate_rsi(df)
 
     # MACD
-    macd = calculate_macd(df)
-    df['MACD'] = macd['macd']
-    df['MACD_Signal'] = macd['signal']
-    df['MACD_Histogram'] = macd['histogram']
+    if should_calc(macd):
+        macd_data = calculate_macd(df)
+        df['MACD'] = macd_data['macd']
+        df['MACD_Signal'] = macd_data['signal']
+        df['MACD_Histogram'] = macd_data['histogram']
 
     # Bollinger Bands
-    bb = calculate_bollinger_bands(df)
-    df['BB_Upper'] = bb['upper']
-    df['BB_Middle'] = bb['middle']
-    df['BB_Lower'] = bb['lower']
+    if should_calc(bb):
+        bb_data = calculate_bollinger_bands(df)
+        df['BB_Upper'] = bb_data['upper']
+        df['BB_Middle'] = bb_data['middle']
+        df['BB_Lower'] = bb_data['lower']
 
     # ATR
-    df['ATR'] = calculate_atr(df)
+    if should_calc(atr):
+        df['ATR'] = calculate_atr(df)
 
     # Stochastic
-    stoch = calculate_stochastic(df)
-    df['Stoch_K'] = stoch['k']
-    df['Stoch_D'] = stoch['d']
+    if should_calc(stoch):
+        stoch_data = calculate_stochastic(df)
+        df['Stoch_K'] = stoch_data['k']
+        df['Stoch_D'] = stoch_data['d']
 
     # OBV
-    df['OBV'] = calculate_obv(df)
+    if should_calc(obv):
+        df['OBV'] = calculate_obv(df)
 
     return df
 

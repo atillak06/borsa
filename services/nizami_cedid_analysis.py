@@ -261,28 +261,79 @@ def generate_description(signal: Signal, macd_position: str, macd_trend: str,
     return " ".join(parts)
 
 
-def analyze_multiple_stocks(symbols: List[str], get_data_func,
+def analyze_multiple_stocks(symbols: List[str], get_data_func=None,
                            get_price_func=None) -> List[NizamiCedidResult]:
-    """Birden fazla hisse için analiz yapar"""
+    """Birden fazla hisse için analiz yapar (Optimize edilmiş)"""
+    # Circular import önlemek için fonksiyon içinde import
+    from services.market_data import get_batch_stock_data, get_multiple_prices, adjust_bist_data
+
     results = []
+
+    # Batch veri çekme (en az 610 gün gerekli, max alıyoruz)
+    batch_df = get_batch_stock_data(symbols, period="max", interval="1d")
+
+    # Analiz
+    # yf.download group_by='ticker' ile her zaman MultiIndex dönebilir (Ticker, Price)
+    is_multi_index = isinstance(batch_df.columns, pd.MultiIndex)
 
     for symbol in symbols:
         try:
-            df = get_data_func(symbol, "max", "1d")
+            # Veriyi al
+            df = None
+            if is_multi_index:
+                 # MultiIndex ise (Ticker, Price) yapısındadır
+                 # columns.levels[0] Ticker'ları içerir
+                 if symbol in batch_df.columns.get_level_values(0):
+                     df = batch_df[symbol].copy()
+                 # Bazen tek sembolde levels[0] yerine direkt column isimleri gelebilir mi?
+                 # yfinance son sürümlerde tek sembolde de MultiIndex dönebilir.
+                 # Eğer batch_df[(symbol, 'Close')] erişimi gerekirse:
+                 elif (symbol, 'Close') in batch_df.columns:
+                     df = batch_df[symbol].copy()
+            else:
+                 # MultiIndex değilse, tek sembol verisidir
+                 # Ancak birden fazla sembol isteyip tek bir tane geldiyse (diğerleri hata verdiyse),
+                 # bu verinin kime ait olduğunu bilemeyebiliriz (yfinance bazen ticker bilgisini kaybeder).
+                 # Bu yüzden sadece tek sembol istendiyse bu veriyi kullanıyoruz.
+                 if len(symbols) == 1:
+                     df = batch_df.copy()
+                 else:
+                     # Çoklu sembol isteyip flat dataframe döndüyse ve bu sembol içinde değilse
+                     # (veya hangisi olduğunu bilmiyorsak) riske girmeyip atlıyoruz.
+                     # Ticker'ı index'ten veya column'dan kurtarmaya çalışabiliriz ama garanti değil.
+                     continue
+
             if df is None or df.empty:
                 continue
 
-            price = None
-            change_percent = None
-            if get_price_func:
-                price_info = get_price_func(symbol)
-                if price_info:
-                    price = price_info.get('price')
-                    change_percent = price_info.get('change_percent')
+            # NA temizle
+            df = df.dropna(how='all')
+            if df.empty:
+                continue
+
+            # BIST düzeltmesi
+            df = adjust_bist_data(df, symbol)
+
+            # Fiyat ve değişim bilgisini df'den hesapla
+            try:
+                latest = df.iloc[-1]
+                prev = df.iloc[-2] if len(df) > 1 else latest
+
+                price = float(latest['Close'])
+                prev_close = float(prev['Close'])
+
+                if prev_close != 0:
+                    change_percent = ((price - prev_close) / prev_close) * 100
+                else:
+                    change_percent = 0.0
+            except:
+                price = 0.0
+                change_percent = 0.0
 
             result = analyze_single_stock(df, symbol, price, change_percent)
             if result:
                 results.append(result)
+
         except Exception as e:
             print(f"Hata ({symbol}): {e}")
             continue
