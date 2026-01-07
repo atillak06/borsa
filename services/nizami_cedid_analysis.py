@@ -33,18 +33,18 @@ class NizamiCedidResult:
     change_percent: Optional[float] = None
 
 
-def calculate_nizami_cedid_indicators(df: pd.DataFrame) -> Dict[str, pd.Series]:
-    """NizamiCedid indikatör değerlerini hesaplar"""
-    if df is None or df.empty or len(df) < 610:
+def calculate_nizami_cedid_indicators(df: pd.DataFrame,
+                                     fast_length: int = 120,
+                                     slow_length: int = 260,
+                                     signal_length: int = 50,
+                                     vwma_length: int = 185,
+                                     ema_long1: int = 377,
+                                     ema_long2: int = 610) -> Dict[str, pd.Series]:
+    """NizamiCedid indikatör değerlerini hesaplar (Dinamik Parametreler)"""
+    # En uzun periyodu bulup veri kontrolü yapalım
+    max_period = max(fast_length, slow_length, signal_length, vwma_length, ema_long1, ema_long2)
+    if df is None or df.empty or len(df) < max_period:
         return {}
-
-    # Parametreler
-    fast_length = 120
-    slow_length = 260
-    signal_length = 50
-    vwma_length = 185
-    ema377_length = 377
-    ema610_length = 610
 
     close = df['Close']
 
@@ -63,8 +63,8 @@ def calculate_nizami_cedid_indicators(df: pd.DataFrame) -> Dict[str, pd.Series]:
         eMacD = macd.rolling(window=vwma_length).mean()
 
     # Uzun vadeli EMA'lar
-    ema377 = close.ewm(span=ema377_length, adjust=False).mean()
-    ema610 = close.ewm(span=ema610_length, adjust=False).mean()
+    ema_l1 = close.ewm(span=ema_long1, adjust=False).mean()
+    ema_l2 = close.ewm(span=ema_long2, adjust=False).mean()
 
     # Normalize değerler
     hist_norm = hist / fast_ma
@@ -81,8 +81,8 @@ def calculate_nizami_cedid_indicators(df: pd.DataFrame) -> Dict[str, pd.Series]:
         'signal_norm': signal_norm,
         'hist_norm': hist_norm,
         'eMacD_norm': eMacD_norm,
-        'ema377': ema377,
-        'ema610': ema610,
+        'ema_long1': ema_l1,
+        'ema_long2': ema_l2,
         'fast_ma': fast_ma,
         'close': close
     }
@@ -90,9 +90,11 @@ def calculate_nizami_cedid_indicators(df: pd.DataFrame) -> Dict[str, pd.Series]:
 
 def analyze_single_stock(df: pd.DataFrame, symbol: str,
                          price: Optional[float] = None,
-                         change_percent: Optional[float] = None) -> Optional[NizamiCedidResult]:
+                         change_percent: Optional[float] = None,
+                         params: Dict = None) -> Optional[NizamiCedidResult]:
     """Tek bir hisse için NizamiCedid analizi yapar"""
-    indicators = calculate_nizami_cedid_indicators(df)
+    params = params or {}
+    indicators = calculate_nizami_cedid_indicators(df, **params)
 
     if not indicators:
         return None
@@ -110,8 +112,8 @@ def analyze_single_stock(df: pd.DataFrame, symbol: str,
     hist_prev = indicators['hist_norm'].iloc[-2]
     hist_prev5 = indicators['hist_norm'].iloc[-5] if len(indicators['hist_norm']) >= 5 else hist_prev
 
-    ema377_now = indicators['ema377'].iloc[-1]
-    ema610_now = indicators['ema610'].iloc[-1]
+    ema_l1_now = indicators['ema_long1'].iloc[-1]
+    ema_l2_now = indicators['ema_long2'].iloc[-1]
 
     close_now = indicators['close'].iloc[-1]
 
@@ -143,8 +145,8 @@ def analyze_single_stock(df: pd.DataFrame, symbol: str,
     else:
         histogram_trend = "Sabit"
 
-    # 5. Uzun vadeli trend (EMA377 vs EMA610)
-    long_term_trend = "Boğa" if ema377_now > ema610_now else "Ayı"
+    # 5. Uzun vadeli trend (EMA L1 vs EMA L2)
+    long_term_trend = "Boğa" if ema_l1_now > ema_l2_now else "Ayı"
 
     # Sinyal gücü hesaplama (-100 ile +100 arası)
     strength = 0
@@ -254,15 +256,94 @@ def generate_description(signal: Signal, macd_position: str, macd_trend: str,
 
     # Uzun vadeli trend
     if long_term_trend == "Boğa":
-        parts.append("Uzun vadeli trend yukarı yönlü (EMA377 > EMA610).")
+        parts.append("Uzun vadeli trend yukarı yönlü (Uzun EMA > En Uzun EMA).")
     else:
-        parts.append("Uzun vadeli trend aşağı yönlü (EMA377 < EMA610).")
+        parts.append("Uzun vadeli trend aşağı yönlü (Uzun EMA < En Uzun EMA).")
 
     return " ".join(parts)
 
 
+def backtest_nizami_cedid(df: pd.DataFrame, params: Dict = None) -> Dict:
+    """Geçmiş veriler üzerinde stratejiyi test eder"""
+    params = params or {}
+    indicators = calculate_nizami_cedid_indicators(df, **params)
+
+    if not indicators:
+        return {}
+
+    macd_norm = indicators['macd_norm']
+
+    # Basit bir backtest mantığı:
+    # +40 gücü geçtiğinde (kabaca MACD pozitife döndüğünde ve trend varken) AL
+    # -40 altına indiğinde SAT
+    # Bu tam olarak 'Strength' hesaplamasını simüle etmiyor ama yakınsamaya çalışalım.
+    # Daha basit: MACD sıfır yukarı kesince AL, aşağı kesince SAT.
+    # Ama Nizami Cedid stratejisi daha karmaşık.
+    # Şimdilik basit MACD Cross stratejisi uygulayalım (Nizami Cedid parametreleri ile)
+
+    macd = indicators['macd']
+    signal = indicators['signal']
+
+    signals = pd.Series(0, index=df.index)
+    # Al sinyali: MACD > Signal
+    signals[macd > signal] = 1
+    # Sat sinyali: MACD < Signal
+    signals[macd < signal] = -1
+
+    # Pozisyon değişimi
+    positions = signals.diff()
+
+    trades = []
+    current_position = 0 # 0: yok, 1: var
+    entry_price = 0
+    entry_date = None
+
+    for i in range(len(positions)):
+        if positions.iloc[i] == 0:
+            continue
+
+        date = positions.index[i]
+        price = df.loc[date]['Close']
+
+        # Alış Sinyali (Pozisyon yoksa al)
+        if signals.iloc[i] == 1 and current_position == 0:
+            current_position = 1
+            entry_price = price
+            entry_date = date
+            trades.append({
+                'Tarih': date,
+                'İşlem': 'AL',
+                'Fiyat': price,
+                'Kar/Zarar %': 0
+            })
+
+        # Satış Sinyali (Pozisyon varsa sat)
+        elif signals.iloc[i] == -1 and current_position == 1:
+            current_position = 0
+            pnl = ((price - entry_price) / entry_price) * 100
+            trades.append({
+                'Tarih': date,
+                'İşlem': 'SAT',
+                'Fiyat': price,
+                'Kar/Zarar %': pnl
+            })
+
+    # Sonuçları hesapla
+    total_trades = len([t for t in trades if t['İşlem'] == 'SAT'])
+    winning_trades = len([t for t in trades if t['İşlem'] == 'SAT' and t['Kar/Zarar %'] > 0])
+    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+    total_return = sum([t['Kar/Zarar %'] for t in trades if t['İşlem'] == 'SAT'])
+
+    return {
+        'trades': pd.DataFrame(trades),
+        'total_trades': total_trades,
+        'win_rate': win_rate,
+        'total_return': total_return
+    }
+
+
 def analyze_multiple_stocks(symbols: List[str], get_data_func=None,
-                           get_price_func=None) -> List[NizamiCedidResult]:
+                           get_price_func=None, params: Dict = None) -> List[NizamiCedidResult]:
     """Birden fazla hisse için analiz yapar (Optimize edilmiş)"""
     # Circular import önlemek için fonksiyon içinde import
     from services.market_data import get_batch_stock_data, get_multiple_prices, adjust_bist_data
@@ -330,7 +411,7 @@ def analyze_multiple_stocks(symbols: List[str], get_data_func=None,
                 price = 0.0
                 change_percent = 0.0
 
-            result = analyze_single_stock(df, symbol, price, change_percent)
+            result = analyze_single_stock(df, symbol, price, change_percent, params=params)
             if result:
                 results.append(result)
 

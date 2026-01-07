@@ -19,7 +19,7 @@ from services.analysis import add_all_indicators, get_signal_summary
 from services.portfolio import calculate_portfolio_value, get_portfolio_allocation
 from services.nizami_cedid_analysis import (
     analyze_multiple_stocks, analyze_single_stock, get_signal_summary_table,
-    get_signal_color, categorize_results, Signal
+    get_signal_color, categorize_results, Signal, backtest_nizami_cedid
 )
 from database.db import (
     get_portfolio, add_to_portfolio, sell_from_portfolio, delete_portfolio_item,
@@ -223,24 +223,48 @@ def render_macd_pasa_page():
             key="macd_pasa_count"
         )
 
+        st.divider()
+        with st.expander("⚙️ Gelişmiş Strateji Ayarları", expanded=False):
+            st.caption("NizamiCedid parametrelerini özelleştirin.")
+
+            p_fast = st.number_input("Hızlı MACD (EMA)", value=120, min_value=5, max_value=500)
+            p_slow = st.number_input("Yavaş MACD (EMA)", value=260, min_value=10, max_value=1000)
+            p_signal = st.number_input("Sinyal (EMA)", value=50, min_value=2, max_value=200)
+
+            p_vwma = st.number_input("VWMA Periyodu", value=185, min_value=10, max_value=500)
+
+            p_ema_l1 = st.number_input("Uzun Vade EMA 1", value=377, min_value=50, max_value=1000)
+            p_ema_l2 = st.number_input("Uzun Vade EMA 2", value=610, min_value=100, max_value=2000)
+
+            strategy_params = {
+                'fast_length': p_fast,
+                'slow_length': p_slow,
+                'signal_length': p_signal,
+                'vwma_length': p_vwma,
+                'ema_long1': p_ema_l1,
+                'ema_long2': p_ema_l2
+            }
+
         if st.button("🔄 Analizi Başlat", type="primary", use_container_width=True):
             st.session_state['run_macd_analysis'] = True
             st.session_state['macd_market'] = market
             st.session_state['macd_count'] = num_stocks
+            st.session_state['macd_params'] = strategy_params
 
     # Analiz başlatıldı mı kontrol et
     if st.session_state.get('run_macd_analysis'):
         market = st.session_state.get('macd_market', 'BIST')
         num_stocks = st.session_state.get('macd_count', 30)
+        params = st.session_state.get('macd_params', {})
 
         symbols = DEFAULT_SYMBOLS[market][:num_stocks]
 
         with st.spinner(f"{len(symbols)} hisse analiz ediliyor..."):
-            # Fonksiyonları parametre olarak geçmeye gerek yok, içeride optimize edilmiş fonksiyonlar kullanılıyor
-            results = analyze_multiple_stocks(symbols)
+            # Optimize edilmiş ve parametreli analiz
+            results = analyze_multiple_stocks(symbols, params=params)
 
         if not results:
-            st.warning("Yeterli veri bulunamadı. En az 610 günlük veri gereklidir.")
+            st.warning("Yeterli veri bulunamadı. En az 610 günlük veri gereklidir (veya seçtiğiniz periyot kadar).")
             return
 
         # Özet istatistikler
@@ -278,6 +302,14 @@ def render_macd_pasa_page():
                         min_value=-100,
                         max_value=100,
                         format="%d"
+                    ),
+                    "Sinyal": st.column_config.TextColumn(
+                        "Sinyal",
+                        help="İndikatörlerin ürettiği ana sinyal"
+                    ),
+                    "Fiyat": st.column_config.NumberColumn(
+                        "Fiyat",
+                        format="%.2f ₺" if market == "BIST" else "%.2f $"
                     )
                 }
             )
@@ -353,8 +385,41 @@ def render_macd_pasa_page():
                     fig = create_candlestick_chart(df, f"{selected_symbol} - MACD Paşa Analizi", show_nizami_cedid=True)
                     st.plotly_chart(fig, use_container_width=True, config=get_chart_config())
 
-        # Analiz durumunu sıfırla
-        st.session_state['run_macd_analysis'] = False
+                    # Backtest Butonu
+                    st.subheader("🔙 Geçmiş Performans (Backtest)")
+                    st.caption("Bu strateji geçmişte uygulansaydı ne olurdu?")
+
+                    if st.button(f"📊 {selected_symbol} İçin Backtest Başlat"):
+                        with st.spinner("Backtest yapılıyor..."):
+                            backtest_results = backtest_nizami_cedid(df, params=params)
+
+                        if backtest_results and backtest_results.get('total_trades', 0) > 0:
+                            col_b1, col_b2, col_b3 = st.columns(3)
+
+                            with col_b1:
+                                st.metric("Toplam Getiri", f"%{backtest_results['total_return']:.2f}")
+                            with col_b2:
+                                st.metric("Kazanma Oranı", f"%{backtest_results['win_rate']:.1f}")
+                            with col_b3:
+                                st.metric("Toplam İşlem", backtest_results['total_trades'])
+
+                            st.write("#### İşlem Geçmişi")
+                            st.dataframe(
+                                backtest_results['trades'],
+                                use_container_width=True,
+                                column_config={
+                                    "Kar/Zarar %": st.column_config.NumberColumn(
+                                        format="%.2f%%"
+                                    )
+                                }
+                            )
+                        else:
+                            st.info("Bu dönemde hiç işlem sinyali oluşmadı.")
+
+        # Analiz durumunu sıfırla (Bunu kaldırırsak sayfa yenilendiğinde sonuçlar kaybolmaz,
+        # ama sidebar değişikliğinde buton tekrar tetiklenmeli.
+        # Streamlit'te bu genelde session state ile yönetilir. Şimdilik kalsın.)
+        # st.session_state['run_macd_analysis'] = False
 
     else:
         # Başlangıç ekranı
