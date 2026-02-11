@@ -1,0 +1,152 @@
+.financials {
+  display: flex;
+  flex-direction: column;
+  background: #0d1119;
+  border-top: 1px solid #1a1e2e;
+  overflow: hidden;
+  height: 100%;
+}
+
+.financials-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  gap: 8px;
+  border-bottom: 1px solid #1a1e2e;
+  flex-shrink: 0;
+}
+
+.financials-tabs,
+.financials-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.fin-tab {
+  background: transparent;
+  border: 1px solid #2a2e3e;
+  color: #8a8e96;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.fin-tab:hover {
+  color: #c8ccd4;
+  border-color: #404555;
+}
+
+.fin-tab.active {
+  background: #1e222d;
+  color: #e0e3eb;
+  border-color: #2962FF;
+}
+
+.fin-loading,
+.fin-error,
+.fin-empty {
+  padding: 16px;
+  text-align: center;
+  color: #8a8e96;
+  font-size: 12px;
+}
+
+.fin-error {
+  color: #ef5350;
+}
+
+.fin-table-wrap {
+  flex: 1;
+  overflow: auto;
+  scrollbar-color: #2a2e3e #0d1119;
+}
+
+.fin-table-wrap::-webkit-scrollbar {
+  width: 8px;
+  height: 10px;
+}
+
+.fin-table-wrap::-webkit-scrollbar-track {
+  background: #0d1119;
+}
+
+.fin-table-wrap::-webkit-scrollbar-thumb {
+  background: #2a2e3e;
+  border-radius: 4px;
+}
+
+.fin-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #404555;
+}
+
+.fin-table-wrap::-webkit-scrollbar-corner {
+  background: #0d1119;
+}
+
+.fin-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fin-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.fin-table th {
+  background: #0f1320;
+  color: #8a8e96;
+  font-weight: 500;
+  padding: 5px 12px;
+  text-align: right;
+  border-bottom: 1px solid #1a1e2e;
+}
+
+.fin-table th.fin-item-col {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #0f1320;
+  min-width: 220px;
+  max-width: 320px;
+  border-right: 1px solid #1a1e2e;
+}
+
+.fin-table td {
+  padding: 4px 12px;
+  text-align: right;
+  color: #c8ccd4;
+  border-bottom: 1px solid #12162080;
+  min-width: 90px;
+}
+
+.fin-table td.fin-item-col {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: #0d1119;
+  color: #8a8e96;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+  border-right: 1px solid #1a1e2e;
+}
+
+.fin-table td.negative {
+  color: #ef5350;
+}
+
+.fin-table tbody tr:hover td {
+  background: #141824;
+}
+
+.fin-table tbody tr:hover td.fin-item-col {
+  background: #141824;
+}

@@ -1,0 +1,58 @@
+.legend {
+  position: absolute;
+  top: 56px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.legend-symbol {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e3eb;
+  margin-right: 4px;
+}
+
+.legend-change {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.legend-change.positive {
+  color: #26a69a;
+}
+
+.legend-change.negative {
+  color: #ef5350;
+}
+
+.legend-label {
+  font-size: 11px;
+  color: #6a6e7e;
+  font-weight: 500;
+}
+
+.legend-value {
+  font-size: 13px;
+  color: #c8ccd4;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend-value.positive {
+  color: #26a69a;
+}
+
+.legend-value.negative {
+  color: #ef5350;
+}
