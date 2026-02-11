@@ -3,6 +3,7 @@ import Toolbar from './components/Toolbar/Toolbar';
 import ChartContainer from './components/Chart/ChartContainer';
 import Legend from './components/Legend/Legend';
 import Financials from './components/Financials/Financials';
+import MarketAnalysis from './components/Analysis/MarketAnalysis';
 import type { Interval, LegendData } from './components/Chart/types';
 import { fetchHistory, fetchSymbols } from './api/borsaApi';
 import type { OHLCVData, SymbolInfo } from './api/borsaApi';
@@ -21,6 +22,7 @@ export default function App() {
   const [showWilliamsR, setShowWilliamsR] = useState(false);
   const [showNizamiCedid, setShowNizamiCedid] = useState(false);
   const [showMATLRNS, setShowMATLRNS] = useState(false);
+  const [activeView, setActiveView] = useState<'chart' | 'analysis'>('chart');
   const [finHeight, setFinHeight] = useState(300);
   const splitterRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +101,11 @@ export default function App() {
     setLegendData(d);
   }, []);
 
+  const handleAnalysisSymbolClick = useCallback((sym: string) => {
+    setSymbol(sym);
+    setActiveView('chart');
+  }, []);
+
   return (
     <div className="app">
       <Toolbar
@@ -119,37 +126,47 @@ export default function App() {
         showMATLRNS={showMATLRNS}
         logScale={logScale}
         onToggleLogScale={() => setLogScale((v) => !v)}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
-      <div className="chart-wrapper" style={showFinancials ? { flex: '1 1 0', minHeight: 200 } : undefined}>
-        <Legend
-          data={legendData}
-          symbol={symbol}
-          lastClose={lastBar?.close ?? 0}
-          prevClose={prevBar?.close ?? lastBar?.close ?? 0}
-        />
-        {loading ? (
-          <div className="loading-overlay">Veri yükleniyor...</div>
-        ) : (
-          <ChartContainer
-            data={data}
-            symbol={symbol}
-            interval={interval}
-            onLegendUpdate={handleLegendUpdate}
-            showChannels={showChannels}
-            showWilliamsR={showWilliamsR}
-            showNizamiCedid={showNizamiCedid}
-            showMATLRNS={showMATLRNS}
-            logScale={logScale}
-          />
-        )}
-      </div>
-      {showFinancials && (
+      {activeView === 'chart' ? (
         <>
-          <div ref={splitterRef} className="splitter" />
-          <div className="financials-panel" style={{ height: finHeight }}>
-            <Financials symbol={symbol} />
+          <div className="chart-wrapper" style={showFinancials ? { flex: '1 1 0', minHeight: 200 } : undefined}>
+            <Legend
+              data={legendData}
+              symbol={symbol}
+              lastClose={lastBar?.close ?? 0}
+              prevClose={prevBar?.close ?? lastBar?.close ?? 0}
+            />
+            {loading ? (
+              <div className="loading-overlay">Veri yükleniyor...</div>
+            ) : (
+              <ChartContainer
+                data={data}
+                symbol={symbol}
+                interval={interval}
+                onLegendUpdate={handleLegendUpdate}
+                showChannels={showChannels}
+                showWilliamsR={showWilliamsR}
+                showNizamiCedid={showNizamiCedid}
+                showMATLRNS={showMATLRNS}
+                logScale={logScale}
+              />
+            )}
           </div>
+          {showFinancials && (
+            <>
+              <div ref={splitterRef} className="splitter" />
+              <div className="financials-panel" style={{ height: finHeight }}>
+                <Financials symbol={symbol} />
+              </div>
+            </>
+          )}
         </>
+      ) : (
+        <div className="analysis-wrapper">
+          <MarketAnalysis onSymbolClick={handleAnalysisSymbolClick} />
+        </div>
       )}
     </div>
   );

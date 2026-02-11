@@ -102,3 +102,119 @@ export function createWebSocket(
 
   return ws;
 }
+
+// ──────────────────────────────────────────────
+// Market Scan API
+// ──────────────────────────────────────────────
+
+export interface ScanRow {
+  symbol: string;
+  close: number;
+  volume: number;
+  data_points: number;
+  [key: string]: string | number | boolean | undefined | null;
+}
+
+export interface ScanProgress {
+  type: 'progress';
+  completed: number;
+  total: number;
+  found: number;
+}
+
+export interface ScanComplete {
+  type: 'complete';
+  results: ScanRow[];
+  total_symbols: number;
+  analyzed: number;
+  timestamp: number;
+}
+
+/**
+ * Start a market scan via SSE.  Returns an AbortController to cancel.
+ */
+export function startScan(
+  onProgress: (p: ScanProgress) => void,
+  onComplete: (c: ScanComplete) => void,
+  onError: (err: string) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  fetch(`${API_BASE}/api/scan`, { signal: controller.signal })
+    .then(async (res) => {
+      if (!res.ok) {
+        onError(`HTTP ${res.status}`);
+        return;
+      }
+
+      const contentType = res.headers.get('content-type') ?? '';
+
+      // If cached, returns JSON directly
+      if (contentType.includes('application/json')) {
+        const json = await res.json();
+        onComplete({
+          type: 'complete',
+          results: json.results ?? [],
+          total_symbols: json.total_symbols ?? 0,
+          analyzed: json.analyzed ?? 0,
+          timestamp: json.timestamp ?? Date.now() / 1000,
+        });
+        return;
+      }
+
+      // SSE stream
+      const reader = res.body?.getReader();
+      if (!reader) {
+        onError('No stream reader');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.type === 'progress') {
+              onProgress(parsed as ScanProgress);
+            } else if (parsed.type === 'complete') {
+              onComplete(parsed as ScanComplete);
+            }
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      if (err.name !== 'AbortError') {
+        onError(String(err));
+      }
+    });
+
+  return controller;
+}
+
+/**
+ * Fetch cached scan results (instant).
+ */
+export async function fetchScanResults(): Promise<ScanComplete & { cache_age_seconds?: number; cached?: boolean }> {
+  const res = await fetch(`${API_BASE}/api/scan/results`);
+  return res.json();
+}
+
+/**
+ * Clear scan cache to force re-scan.
+ */
+export async function clearScanCache(): Promise<void> {
+  await fetch(`${API_BASE}/api/scan/cache`, { method: 'DELETE' });
+}

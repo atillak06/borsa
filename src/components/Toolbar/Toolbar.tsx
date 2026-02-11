@@ -21,6 +21,8 @@ interface ToolbarProps {
   showMATLRNS: boolean;
   logScale: boolean;
   onToggleLogScale: () => void;
+  activeView: 'chart' | 'analysis';
+  onViewChange: (view: 'chart' | 'analysis') => void;
 }
 
 const INTERVALS: { value: Interval; label: string }[] = [
@@ -182,78 +184,106 @@ export default function Toolbar({
   showMATLRNS,
   logScale,
   onToggleLogScale,
+  activeView,
+  onViewChange,
 }: ToolbarProps) {
+  const isChart = activeView === 'chart';
+
   return (
     <div className="toolbar">
       <div className="toolbar-section">
-        <div className="toolbar-group">
-          <SymbolSearch
-            symbol={symbol}
-            symbols={symbols}
-            onSymbolChange={onSymbolChange}
-          />
+        {/* View toggle */}
+        <div className="toolbar-group view-toggle">
+          <button
+            className={`toolbar-btn ${isChart ? 'active' : ''}`}
+            onClick={() => onViewChange('chart')}
+          >
+            Grafik
+          </button>
+          <button
+            className={`toolbar-btn analysis-btn ${!isChart ? 'active' : ''}`}
+            onClick={() => onViewChange('analysis')}
+          >
+            Piyasa Analizi
+          </button>
         </div>
 
         <div className="toolbar-divider" />
 
-        <div className="toolbar-group">
-          {INTERVALS.map((iv) => (
+        {isChart && (
+          <>
+            <div className="toolbar-group">
+              <SymbolSearch
+                symbol={symbol}
+                symbols={symbols}
+                onSymbolChange={onSymbolChange}
+              />
+            </div>
+
+            <div className="toolbar-divider" />
+
+            <div className="toolbar-group">
+              {INTERVALS.map((iv) => (
+                <button
+                  key={iv.value}
+                  className={`toolbar-btn ${interval === iv.value ? 'active' : ''}`}
+                  onClick={() => onIntervalChange(iv.value)}
+                >
+                  {iv.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="toolbar-divider" />
+
             <button
-              key={iv.value}
-              className={`toolbar-btn ${interval === iv.value ? 'active' : ''}`}
-              onClick={() => onIntervalChange(iv.value)}
+              className={`toolbar-btn ${logScale ? 'active' : ''}`}
+              onClick={onToggleLogScale}
             >
-              {iv.label}
+              Log
             </button>
-          ))}
-        </div>
-
-        <div className="toolbar-divider" />
-
-        <button
-          className={`toolbar-btn ${logScale ? 'active' : ''}`}
-          onClick={onToggleLogScale}
-        >
-          Log
-        </button>
+          </>
+        )}
       </div>
 
-      <div className="toolbar-section">
-        <button
-          className={`toolbar-btn ${showChannels ? 'active' : ''}`}
-          onClick={onToggleChannels}
-        >
-          Kanallar
-        </button>
-        <button
-          className={`toolbar-btn ${showWilliamsR ? 'active' : ''}`}
-          onClick={onToggleWilliamsR}
-        >
-          William Paşa
-        </button>
-        <button
-          className={`toolbar-btn ${showNizamiCedid ? 'active' : ''}`}
-          onClick={onToggleNizamiCedid}
-        >
-          3. Selim
-        </button>
-        <button
-          className={`toolbar-btn ${showMATLRNS ? 'active' : ''}`}
-          onClick={onToggleMATLRNS}
-        >
-          MATLRNS
-        </button>
-        <button
-          className={`toolbar-btn ${showFinancials ? 'active' : ''}`}
-          onClick={onToggleFinancials}
-        >
-          Finansallar
-        </button>
-        <div className="live-indicator">
-          <span className="live-dot" />
-          CANLI
+      {isChart && (
+        <div className="toolbar-section">
+          <button
+            className={`toolbar-btn ${showChannels ? 'active' : ''}`}
+            onClick={onToggleChannels}
+          >
+            Kanallar
+          </button>
+          <button
+            className={`toolbar-btn ${showWilliamsR ? 'active' : ''}`}
+            onClick={onToggleWilliamsR}
+          >
+            William Pasa
+          </button>
+          <button
+            className={`toolbar-btn ${showNizamiCedid ? 'active' : ''}`}
+            onClick={onToggleNizamiCedid}
+          >
+            3. Selim
+          </button>
+          <button
+            className={`toolbar-btn ${showMATLRNS ? 'active' : ''}`}
+            onClick={onToggleMATLRNS}
+          >
+            MATLRNS
+          </button>
+          <button
+            className={`toolbar-btn ${showFinancials ? 'active' : ''}`}
+            onClick={onToggleFinancials}
+          >
+            Finansallar
+          </button>
+          <div className="live-indicator">
+            <span className="live-dot" />
+            CANLI
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

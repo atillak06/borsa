@@ -1,0 +1,187 @@
+.market-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
+  scrollbar-color: #2a2e3e #0a0e17;
+}
+
+.market-analysis::-webkit-scrollbar {
+  width: 6px;
+}
+
+.market-analysis::-webkit-scrollbar-track {
+  background: #0a0e17;
+}
+
+.market-analysis::-webkit-scrollbar-thumb {
+  background: #2a2e3e;
+  border-radius: 3px;
+}
+
+/* Header */
+.analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.analysis-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.analysis-title {
+  color: #e0e3eb;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.analysis-subtitle {
+  color: #6a6e7e;
+  font-size: 12px;
+}
+
+.cache-age {
+  color: #555;
+}
+
+.rescan-btn {
+  background: #2962FF;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.rescan-btn:hover {
+  background: #1e50d9;
+}
+
+.rescan-btn:disabled {
+  background: #1a1e2e;
+  color: #555;
+  cursor: not-allowed;
+}
+
+/* Progress */
+.scan-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-bar {
+  height: 4px;
+  background: #1a1e2e;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2962FF;
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.progress-text {
+  color: #6a6e7e;
+  font-size: 11px;
+}
+
+.scan-error {
+  color: #ef5350;
+  font-size: 12px;
+  padding: 8px;
+  background: rgba(239, 83, 80, 0.08);
+  border-radius: 4px;
+}
+
+/* 2x2 Chart Grid */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.analysis-card {
+  background: #0f1320;
+  border: 1px solid #1a1e2e;
+  border-radius: 8px;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+.analysis-table-section {
+  margin-top: 4px;
+}
+
+/* Loading */
+.scan-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  gap: 16px;
+}
+
+.scan-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #1a1e2e;
+  border-top-color: #2962FF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.scan-loading-text {
+  color: #6a6e7e;
+  font-size: 13px;
+}
+
+/* Progress bar animation for initial state */
+.progress-fill {
+  position: relative;
+}
+
+.scan-progress .progress-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-progress .progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .analysis-grid {
+    grid-template-columns: 1fr;
+  }
+}

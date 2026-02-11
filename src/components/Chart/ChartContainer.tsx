@@ -1234,9 +1234,8 @@ export default function ChartContainer({
     <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       <div ref={containerRef} className="chart-container" />
       {showWilliamsR && (() => {
-        // WR panel position: bottom-up stacking
-        // If NC is also shown, WR is second panel (bottom = 40 + 130), else bottom panel (bottom = 40)
-        const wrPanelBot = showNizamiCedid ? 40 + 130 : 40;
+        // WR is always subPanels[0] → bottom = 40 (lowest panel)
+        const wrPanelBot = 40;
         const wrTop = wrPanelBot + 120; // top of WR panel
         return (
           <div className="wr-legend" style={{ bottom: wrTop }}>
@@ -1252,23 +1251,28 @@ export default function ChartContainer({
           </div>
         );
       })()}
-      {showNizamiCedid && (
-        <div className="wr-legend" style={{ bottom: 40 + 120 }}>
-          <span className="wr-legend-title">3. Selim</span>
-          <span className="wr-legend-label" style={{ color: '#ff00a6' }}>MACD</span>
-          <span className="wr-legend-value" style={{ color: '#ff00a6' }}>
-            {ncLegend?.macd != null ? (ncLegend.macd * 100).toFixed(3) : '—'}
-          </span>
-          <span className="wr-legend-label" style={{ color: '#FF6D00' }}>Sinyal</span>
-          <span className="wr-legend-value" style={{ color: '#FF6D00' }}>
-            {ncLegend?.signal != null ? (ncLegend.signal * 100).toFixed(3) : '—'}
-          </span>
-          <span className="wr-legend-label" style={{ color: '#e0e0e0' }}>eMACD</span>
-          <span className="wr-legend-value" style={{ color: '#e0e0e0' }}>
-            {ncLegend?.eMacD != null ? (ncLegend.eMacD * 100).toFixed(3) : '—'}
-          </span>
-        </div>
-      )}
+      {showNizamiCedid && (() => {
+        // NC panel: if WR is also shown → second panel (bottom = 40+130), else lowest (bottom = 40)
+        const ncPanelBot = showWilliamsR ? 40 + 130 : 40;
+        const ncTop = ncPanelBot + 120;
+        return (
+          <div className="wr-legend" style={{ bottom: ncTop }}>
+            <span className="wr-legend-title">3. Selim</span>
+            <span className="wr-legend-label" style={{ color: '#ff00a6' }}>MACD</span>
+            <span className="wr-legend-value" style={{ color: '#ff00a6' }}>
+              {ncLegend?.macd != null ? (ncLegend.macd * 100).toFixed(3) : '—'}
+            </span>
+            <span className="wr-legend-label" style={{ color: '#FF6D00' }}>Sinyal</span>
+            <span className="wr-legend-value" style={{ color: '#FF6D00' }}>
+              {ncLegend?.signal != null ? (ncLegend.signal * 100).toFixed(3) : '—'}
+            </span>
+            <span className="wr-legend-label" style={{ color: '#e0e0e0' }}>eMACD</span>
+            <span className="wr-legend-value" style={{ color: '#e0e0e0' }}>
+              {ncLegend?.eMacD != null ? (ncLegend.eMacD * 100).toFixed(3) : '—'}
+            </span>
+          </div>
+        );
+      })()}
       {showChannels && channelResults.length > 0 && (
         <div className="pearson-table">
           <table>

@@ -180,3 +180,12 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.8); }
 }
+
+.view-toggle {
+  gap: 2px;
+}
+
+.analysis-btn.active {
+  background: #26a69a;
+  border-color: #26a69a;
+}
