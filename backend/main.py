@@ -236,15 +236,32 @@ BANK_SYMBOLS = {
     "ISFIN", "SEKFK", "VAKFN",
 }
 
+import os
 import pickle
+import requests as _requests
 import urllib3
 import isyatirimhisse.FetchFinancials as _ff_mod
 
-# Force disable SSL verification in isyatirimhisse.
-# The library sets _SSL_VERIFY=True when `truststore` is installed,
-# but the Windows/macOS trust store may lack the CA cert for isyatirim.com.tr.
+# ── Force disable SSL verification for isyatirimhisse ──
+# Problem: the library sets _SSL_VERIFY=True when `truststore` is installed,
+# and env vars like REQUESTS_CA_BUNDLE / SSL_CERT_FILE can also force SSL
+# verification even when verify=False is passed.
+# Fix: (1) override module var, (2) clear interfering env vars for this host,
+# (3) monkey-patch requests.get inside the module to use trust_env=False.
 _ff_mod._SSL_VERIFY = False
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+_orig_requests_get = _requests.get
+
+def _get_no_ssl(*args, **kwargs):
+    """requests.get wrapper that fully bypasses SSL verification."""
+    kwargs["verify"] = False
+    session = _requests.Session()
+    session.verify = False
+    session.trust_env = False  # Ignore REQUESTS_CA_BUNDLE, SSL_CERT_FILE, proxy env
+    return session.get(*args, **kwargs)
+
+_ff_mod.requests.get = _get_no_ssl
 
 from isyatirimhisse import fetch_financials as isy_fetch_financials
 
