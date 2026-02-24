@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import borsapy as bp
 
 # Suppress noisy heartbeat parse warnings from borsapy
-logging.getLogger("borsapy.stream").setLevel(logging.ERROR)
+logging.getLogger("borsapy").setLevel(logging.ERROR)
 
 from indicators import compute_all_indicators
 
@@ -236,40 +236,24 @@ BANK_SYMBOLS = {
     "ISFIN", "SEKFK", "VAKFN",
 }
 
+import os
+import ssl
 import pickle
-import requests
 import urllib3
-from isyatirimhisse import fetch_financials as isy_fetch_financials
 
-# Suppress SSL warnings when verification is disabled
+# Disable SSL verification globally — isyatirimhisse uses requests internally
+# and ignores our monkey-patches. This is the only reliable fix for systems
+# with missing/outdated CA certificates.
+ssl._create_default_https_context = ssl._create_unverified_context
+os.environ["PYTHONHTTPSVERIFY"] = "0"
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+from isyatirimhisse import fetch_financials as isy_fetch_financials
 
 CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 # Cache validity: 1 day (86400 seconds)
 CACHE_TTL = 86400
-
-
-def _fetch_with_ssl_bypass(symbol: str, fg: str):
-    """Fetch financials with SSL verification disabled to handle cert issues."""
-    # Monkey-patch requests.Session.request to force verify=False
-    _orig_send = requests.adapters.HTTPAdapter.send
-
-    def _send_no_verify(self, request, **kwargs):
-        kwargs["verify"] = False
-        return _orig_send(self, request, **kwargs)
-
-    requests.adapters.HTTPAdapter.send = _send_no_verify
-    try:
-        return isy_fetch_financials(
-            symbols=symbol,
-            start_year=2005,
-            end_year=2025,
-            exchange="TRY",
-            financial_group=fg,
-        )
-    finally:
-        requests.adapters.HTTPAdapter.send = _orig_send
 
 
 def _get_cached_financials(symbol: str, fg: str):
@@ -288,9 +272,15 @@ def _get_cached_financials(symbol: str, fg: str):
             except Exception:
                 pass  # corrupted cache, re-fetch
 
-    # Fetch from API with SSL bypass
+    # Fetch from API (SSL verification disabled globally above)
     print(f"Fetching financials for {symbol} from API...")
-    df = _fetch_with_ssl_bypass(symbol, fg)
+    df = isy_fetch_financials(
+        symbols=symbol,
+        start_year=2005,
+        end_year=2025,
+        exchange="TRY",
+        financial_group=fg,
+    )
 
     # Save to cache
     if df is not None and not df.empty:
