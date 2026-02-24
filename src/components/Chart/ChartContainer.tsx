@@ -1179,14 +1179,20 @@ export default function ChartContainer({
     updateChart();
   }, [updateChart]);
 
-  // Realtime WebSocket updates
+  // Realtime WebSocket updates — only reconnect when symbol changes
+  const dataReadyRef = useRef(false);
   useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (!chart || filtered.length === 0) return;
+    dataReadyRef.current = filtered.length > 0;
+  }, [filtered]);
+
+  useEffect(() => {
+    if (!dataReadyRef.current) return;
 
     const ws = createWebSocket(
       symbol,
       (quote) => {
+        const chart = chartInstanceRef.current;
+        if (!chart) return;
         // Update last bar with realtime quote
         const arr = currentDataRef.current;
         if (arr.length === 0) return;
@@ -1228,7 +1234,7 @@ export default function ChartContainer({
     return () => {
       ws.close();
     };
-  }, [filtered, symbol]);
+  }, [symbol]);
 
   return (
     <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
