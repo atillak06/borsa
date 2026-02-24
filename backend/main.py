@@ -6,11 +6,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import logging
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import borsapy as bp
+
+# Suppress noisy heartbeat parse warnings from borsapy
+logging.getLogger("borsapy.stream").setLevel(logging.ERROR)
 
 from indicators import compute_all_indicators
 
@@ -233,12 +237,39 @@ BANK_SYMBOLS = {
 }
 
 import pickle
+import requests
+import urllib3
 from isyatirimhisse import fetch_financials as isy_fetch_financials
+
+# Suppress SSL warnings when verification is disabled
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 # Cache validity: 1 day (86400 seconds)
 CACHE_TTL = 86400
+
+
+def _fetch_with_ssl_bypass(symbol: str, fg: str):
+    """Fetch financials with SSL verification disabled to handle cert issues."""
+    # Monkey-patch requests.Session.request to force verify=False
+    _orig_send = requests.adapters.HTTPAdapter.send
+
+    def _send_no_verify(self, request, **kwargs):
+        kwargs["verify"] = False
+        return _orig_send(self, request, **kwargs)
+
+    requests.adapters.HTTPAdapter.send = _send_no_verify
+    try:
+        return isy_fetch_financials(
+            symbols=symbol,
+            start_year=2005,
+            end_year=2025,
+            exchange="TRY",
+            financial_group=fg,
+        )
+    finally:
+        requests.adapters.HTTPAdapter.send = _orig_send
 
 
 def _get_cached_financials(symbol: str, fg: str):
@@ -257,15 +288,9 @@ def _get_cached_financials(symbol: str, fg: str):
             except Exception:
                 pass  # corrupted cache, re-fetch
 
-    # Fetch from API
+    # Fetch from API with SSL bypass
     print(f"Fetching financials for {symbol} from API...")
-    df = isy_fetch_financials(
-        symbols=symbol,
-        start_year=2005,
-        end_year=2025,
-        exchange="TRY",
-        financial_group=fg,
-    )
+    df = _fetch_with_ssl_bypass(symbol, fg)
 
     # Save to cache
     if df is not None and not df.empty:
