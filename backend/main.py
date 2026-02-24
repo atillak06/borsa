@@ -236,16 +236,14 @@ BANK_SYMBOLS = {
     "ISFIN", "SEKFK", "VAKFN",
 }
 
-import os
-import ssl
 import pickle
 import urllib3
+import isyatirimhisse.FetchFinancials as _ff_mod
 
-# Disable SSL verification globally — isyatirimhisse uses requests internally
-# and ignores our monkey-patches. This is the only reliable fix for systems
-# with missing/outdated CA certificates.
-ssl._create_default_https_context = ssl._create_unverified_context
-os.environ["PYTHONHTTPSVERIFY"] = "0"
+# Force disable SSL verification in isyatirimhisse.
+# The library sets _SSL_VERIFY=True when `truststore` is installed,
+# but the Windows/macOS trust store may lack the CA cert for isyatirim.com.tr.
+_ff_mod._SSL_VERIFY = False
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from isyatirimhisse import fetch_financials as isy_fetch_financials
