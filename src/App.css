@@ -1,0 +1,144 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+
+.splitter {
+  height: 5px;
+  background: var(--border-primary);
+  cursor: ns-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.splitter:hover {
+  background: var(--accent);
+}
+
+.financials-panel {
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.signal-panel-wrapper {
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.analysis-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .app-body {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .chart-wrapper {
+    min-height: 300px;
+  }
+
+  .financials-panel {
+    height: auto !important;
+    max-height: 250px;
+  }
+
+  .signal-panel-wrapper {
+    height: auto !important;
+    max-height: 280px;
+  }
+
+  .splitter {
+    height: 4px;
+  }
+}
+
+/* Small phone breakpoint */
+@media (max-width: 480px) {
+  .chart-wrapper {
+    min-height: 250px;
+  }
+  .signal-panel-wrapper {
+    height: auto !important;
+    max-height: 200px;
+  }
+  .splitter {
+    height: 8px; /* bigger touch target */
+  }
+}
+
+/* Tablet breakpoint */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .chart-wrapper {
+    min-height: 350px;
+  }
+}

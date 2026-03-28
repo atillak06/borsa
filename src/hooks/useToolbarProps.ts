@@ -1,0 +1,299 @@
+/**
+ * useToolbarProps – extracts all toolbar-related state, effects, and prop
+ * assembly out of App.tsx so that AppContent becomes a thin rendering shell.
+ */
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAppContext } from '../contexts/AppContext';
+import { useToast } from '../components/Toast/Toast';
+import { useWatchlist } from './useWatchlist';
+import { useAlarms } from './useAlarms';
+import { useIsMobile } from './useMediaQuery';
+import { useHistoryData } from './useHistoryData';
+import type { Interval, LegendData, ActiveView } from '../components/Chart/types';
+import { fetchSymbols, fetchDataTimestamp } from '../api/borsaApi';
+import type { SymbolInfo } from '../api/borsaApi';
+
+// --- Hash routing helpers ---
+
+const VIEW_ROUTES: ActiveView[] = ['analysis', 'multichart', 'backtest', 'finansal', 'kripto'];
+
+function parseHash(): { symbol?: string; view?: ActiveView } {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  if (!hash) return {};
+  if (VIEW_ROUTES.includes(hash as ActiveView)) return { view: hash as ActiveView };
+  if (/^[A-Za-z0-9]+$/.test(hash)) return { symbol: hash.toUpperCase(), view: 'chart' };
+  return {};
+}
+
+function writeHash(view: ActiveView, symbol: string) {
+  const next = view === 'chart' ? `#/${symbol}` : `#/${view}`;
+  if (window.location.hash !== next) {
+    window.history.replaceState(null, '', next);
+  }
+}
+
+// --- Hook ---
+
+export function useToolbarProps() {
+  const { t } = useTranslation();
+  // ── Context ──
+  const {
+    showBollinger,
+    showRSI,
+    showMACD,
+    showStochRSI,
+    showSuperTrend,
+    showIchimoku,
+    showOBV,
+    showFinancials,
+    showSignals,
+    logScale,
+    signalConfig,
+    signalDateRange,
+    toggle,
+    setSignalConfig,
+    setSignalDateRange,
+  } = useAppContext();
+
+  const { toast } = useToast();
+
+  // ── State ──
+  const initial = parseHash();
+  const [symbols, setSymbols] = useState<SymbolInfo[]>([]);
+  const [symbol, setSymbol] = useState(initial.symbol ?? 'THYAO');
+  const [interval, setInterval_] = useState<Interval>('1d');
+  const [legendData, setLegendData] = useState<LegendData | null>(null);
+  const [activeView, setActiveView] = useState<ActiveView>(initial.view ?? 'chart');
+  const [dataTimestamp, setDataTimestamp] = useState<number | null>(null);
+  const [finHeight, setFinHeight] = useState(300);
+  const [sigHeight, setSigHeight] = useState(300);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [alarmsOpen, setAlarmsOpen] = useState(false);
+  const splitterRef = useRef<HTMLDivElement>(null);
+  const sigSplitterRef = useRef<HTMLDivElement>(null);
+
+  // ── Sub-hooks ──
+  const { watchlist, toggleSymbol, removeSymbol, isWatched } = useWatchlist();
+  const { alarms, addAlarm, removeAlarm, updateAlarm, resetTriggered, uniqueActiveSymbols } =
+    useAlarms();
+  const isMobile = useIsMobile();
+  const { data, loading } = useHistoryData(symbol, interval);
+
+  // ── Effects ──
+
+  // Reset legend when symbol changes so stale data doesn't linger
+  useEffect(() => {
+    setLegendData(null);
+  }, [symbol]);
+
+  // Fetch symbol list + data timestamp on mount
+  useEffect(() => {
+    fetchSymbols()
+      .then((res) => {
+        const all = [...res.stocks, ...res.indices];
+        setSymbols(all);
+      })
+      .catch(() => {
+        toast(t('errors.symbolListFailed'), 'warning');
+        setSymbols([
+          { name: 'THYAO', displayName: 'Türk Hava Yolları' },
+          { name: 'GARAN', displayName: 'Garanti Bankası' },
+          { name: 'AKBNK', displayName: 'Akbank' },
+          { name: 'ASELS', displayName: 'Aselsan' },
+          { name: 'EREGL', displayName: 'Ereğli Demir Çelik' },
+        ]);
+      });
+    fetchDataTimestamp().then((ts) => setDataTimestamp(ts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync state -> hash
+  useEffect(() => {
+    writeHash(activeView, symbol);
+  }, [activeView, symbol]);
+
+  // Listen for hash changes (browser back/forward)
+  useEffect(() => {
+    const onHashChange = () => {
+      const parsed = parseHash();
+      if (parsed.view) setActiveView(parsed.view);
+      if (parsed.symbol) setSymbol(parsed.symbol);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Splitter drag — use refs to avoid re-attaching on every height change
+  const finHeightRef = useRef(finHeight);
+  finHeightRef.current = finHeight;
+
+  useEffect(() => {
+    if (!showFinancials) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const startH = finHeightRef.current;
+
+      const onMove = (ev: MouseEvent) => {
+        const diff = startY - ev.clientY;
+        setFinHeight(Math.max(120, Math.min(window.innerHeight - 200, startH + diff)));
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    };
+
+    const splitter = splitterRef.current;
+    splitter?.addEventListener('mousedown', onMouseDown);
+    return () => splitter?.removeEventListener('mousedown', onMouseDown);
+  }, [showFinancials]);
+
+  // Signal splitter drag
+  const sigHeightRef = useRef(sigHeight);
+  sigHeightRef.current = sigHeight;
+
+  useEffect(() => {
+    if (!showSignals) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const startH = sigHeightRef.current;
+
+      const onMove = (ev: MouseEvent) => {
+        const diff = startY - ev.clientY;
+        setSigHeight(Math.max(120, Math.min(window.innerHeight - 200, startH + diff)));
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    };
+
+    const splitter = sigSplitterRef.current;
+    splitter?.addEventListener('mousedown', onMouseDown);
+    return () => splitter?.removeEventListener('mousedown', onMouseDown);
+  }, [showSignals]);
+
+  // ── Computed ──
+  const lastBar = data.length > 0 ? data[data.length - 1] : null;
+  const prevBar = data.length > 1 ? data[data.length - 2] : null;
+
+  // ── Callbacks ──
+  const handleLegendUpdate = useCallback((d: LegendData | null) => {
+    setLegendData(d);
+  }, []);
+
+  const handleSymbolClick = useCallback((sym: string) => {
+    setSymbol(sym);
+    setActiveView('chart');
+  }, []);
+
+  // ── Toolbar props object ──
+  const toolbarProps = {
+    symbol,
+    symbols,
+    interval,
+    onSymbolChange: setSymbol,
+    onIntervalChange: setInterval_,
+    onToggleFinancials: () => toggle('showFinancials'),
+    showFinancials,
+    onToggleBollinger: () => toggle('showBollinger'),
+    showBollinger,
+    onToggleRSI: () => toggle('showRSI'),
+    showRSI,
+    onToggleMACD: () => toggle('showMACD'),
+    showMACD,
+    onToggleStochRSI: () => toggle('showStochRSI'),
+    showStochRSI,
+    onToggleSuperTrend: () => toggle('showSuperTrend'),
+    showSuperTrend,
+    onToggleIchimoku: () => toggle('showIchimoku'),
+    showIchimoku,
+    onToggleOBV: () => toggle('showOBV'),
+    showOBV,
+    logScale,
+    onToggleLogScale: () => toggle('logScale'),
+    activeView,
+    onViewChange: setActiveView,
+    watchlistOpen,
+    onToggleWatchlist: () => setWatchlistOpen((v: boolean) => !v),
+    isCurrentSymbolWatched: isWatched(symbol),
+    onToggleCurrentSymbolWatch: () => toggleSymbol(symbol),
+    alarmsOpen,
+    onToggleAlarms: () => setAlarmsOpen((v: boolean) => !v),
+    alarmCount: alarms.filter((a) => a.enabled && !a.triggered).length,
+    dataTimestamp,
+    onToggleSignals: () => toggle('showSignals'),
+    showSignals,
+  };
+
+  // ── Return everything AppContent needs ──
+  return {
+    // toolbar
+    toolbarProps,
+    isMobile,
+
+    // view
+    activeView,
+    setActiveView,
+
+    // symbol / data
+    symbol,
+    setSymbol,
+    symbols,
+    interval,
+    data,
+    loading,
+    lastBar,
+    prevBar,
+    legendData,
+    handleLegendUpdate,
+    handleSymbolClick,
+
+    // indicators from context
+    showBollinger,
+    showRSI,
+    showMACD,
+    showStochRSI,
+    showSuperTrend,
+    showIchimoku,
+    showOBV,
+    showFinancials,
+    showSignals,
+    logScale,
+    signalConfig,
+    setSignalConfig,
+    signalDateRange,
+    setSignalDateRange,
+
+    // panels
+    finHeight,
+    sigHeight,
+    splitterRef,
+    sigSplitterRef,
+
+    // watchlist
+    watchlist,
+    watchlistOpen,
+    setWatchlistOpen,
+    removeSymbol,
+
+    // alarms
+    alarms,
+    alarmsOpen,
+    setAlarmsOpen,
+    addAlarm,
+    removeAlarm,
+    updateAlarm,
+    resetTriggered,
+    uniqueActiveSymbols,
+  };
+}

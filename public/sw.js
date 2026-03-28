@@ -1,0 +1,63 @@
+// Service Worker for BIST Borsa Analiz PWA
+const CACHE_NAME = 'borsa-v1';
+const DATA_CACHE = 'borsa-data-v1';
+
+// Static assets — cache-first
+const STATIC_ASSETS = [
+  '/borsa/',
+  '/borsa/index.html',
+  '/borsa/favicon.svg',
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((k) => k !== CACHE_NAME && k !== DATA_CACHE)
+          .map((k) => caches.delete(k))
+      )
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Data JSON files: network-first, fallback to cache
+  if (url.pathname.includes('/data/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(DATA_CACHE).then((cache) => cache.put(event.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Static assets: cache-first, fallback to network
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((res) => {
+        // Cache JS/CSS bundles on first load
+        if (res.ok && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return res;
+      });
+    })
+  );
+});

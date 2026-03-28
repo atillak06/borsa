@@ -1,0 +1,355 @@
+/* Mobile Toolbar - top bar */
+.mobile-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  gap: 8px;
+  min-height: 44px;
+}
+
+.mt-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mt-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mt-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 4px;
+  padding: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-family: inherit;
+}
+
+.mt-btn:active {
+  background: var(--border-primary);
+}
+
+.mt-btn.active {
+  color: var(--accent);
+}
+
+.mt-hamburger {
+  flex-shrink: 0;
+}
+
+.mt-symbol-btn {
+  background: var(--border-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  min-width: 0;
+  flex: 1;
+  max-width: 200px;
+}
+
+.mt-symbol-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.mt-symbol-display {
+  color: var(--text-muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-star {
+  font-size: 18px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  padding: 4px;
+}
+
+.mt-star.watched {
+  color: #fdd835;
+}
+
+.mt-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--down-color);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+.mt-data-ts {
+  color: var(--text-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+/* Interval bar */
+.mobile-interval-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-interval-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.mib-intervals,
+.mib-views {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mib-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.mib-btn:active {
+  background: var(--border-primary);
+}
+
+.mib-btn.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.mib-multi.active {
+  background: #7c4dff;
+  border-color: #7c4dff;
+}
+
+.mib-analysis.active {
+  background: var(--up-color);
+  border-color: var(--up-color);
+}
+
+.mib-backtest.active {
+  background: #ff6d00;
+  border-color: #ff6d00;
+}
+
+.mib-finansal.active {
+  background: #00897b;
+  border-color: #00897b;
+}
+
+.mib-signal.active {
+  background: #d81b60;
+  border-color: #d81b60;
+}
+
+/* Mobile menu overlay */
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  animation: fadeIn 0.15s ease;
+}
+
+.mobile-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100%;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  overflow-y: auto;
+  padding: 12px 0;
+  animation: slideRight 0.2s ease;
+}
+
+@keyframes slideRight {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mm-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.mm-section:last-child {
+  border-bottom: none;
+}
+
+.mm-section-title {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 4px 16px 8px;
+}
+
+.mm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s;
+  position: relative;
+}
+
+.mm-item:active {
+  background: var(--highlight-bg);
+}
+
+.mm-item.active {
+  color: var(--accent);
+  background: rgba(41, 98, 255, 0.08);
+}
+
+/* Mobile search overlay */
+.mobile-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  animation: fadeIn 0.15s ease;
+}
+
+.mobile-search-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-search-input {
+  width: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  border-bottom: 1px solid var(--border-primary);
+  padding: 14px 16px;
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+}
+
+.mobile-search-input::placeholder {
+  color: var(--placeholder-color);
+}
+
+.mobile-search-results {
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-search-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--placeholder-color);
+  font-size: 13px;
+}
+
+.mobile-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.mobile-search-item:active,
+.mobile-search-item.highlighted {
+  background: var(--highlight-bg);
+}
+
+.mobile-search-item.selected .msi-name {
+  color: var(--accent);
+}
+
+.msi-name {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 60px;
+}
+
+.msi-display {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

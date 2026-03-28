@@ -1,0 +1,112 @@
+.chart-container {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pearson-table {
+  position: absolute;
+  bottom: 40px;
+  right: 90px;
+  background: var(--tooltip-bg);
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  padding: 4px;
+  z-index: 10;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.pearson-table table {
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.pearson-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 2px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.pearson-table td {
+  color: var(--text-primary);
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.pearson-row {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pearson-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pearson-row.dimmed {
+  opacity: 0.5;
+}
+
+.check-cell {
+  width: 16px;
+  padding: 2px 4px !important;
+}
+
+.tick {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--placeholder-color);
+  border-radius: 2px;
+  position: relative;
+  vertical-align: middle;
+}
+
+.tick.on::after {
+  content: '';
+  position: absolute;
+  left: 1.5px;
+  top: -0.5px;
+  width: 4px;
+  height: 7px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  color: inherit;
+}
+
+.tick.on {
+  color: var(--text-primary);
+}
+
+.wr-legend {
+  position: absolute;
+  bottom: 160px;
+  left: 90px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+}
+
+.wr-legend-title {
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.wr-legend-label {
+  font-weight: 500;
+  font-size: 10px;
+}
+
+.wr-legend-value {
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+}
