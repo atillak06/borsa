@@ -199,7 +199,7 @@ export interface BinanceKlineEvent {
 }
 
 /**
- * Connect to Binance kline WebSocket stream.
+ * Connect to Binance kline WebSocket stream with auto-reconnect.
  * Calls `onUpdate` with the latest bar data on each tick.
  * Returns a cleanup function.
  */
@@ -209,39 +209,75 @@ export function subscribeKline(
   onUpdate: (bar: OHLCVData, closed: boolean) => void,
 ): () => void {
   const stream = `${symbol.toLowerCase()}@kline_${interval}`;
-  const ws = new WebSocket(`${BINANCE_WS}/${stream}`);
   let disposed = false;
+  let ws: WebSocket | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout>;
+  let reconnectDelay = 1000;
+  const MAX_RECONNECT_DELAY = 30000;
 
-  ws.onmessage = (event) => {
+  function connect() {
     if (disposed) return;
     try {
-      const msg: BinanceKlineEvent = JSON.parse(event.data);
-      if (msg.e !== 'kline') return;
-      const k = msg.k;
-      const ts = new Date(k.t);
-      const intra = isCryptoIntraday(interval);
-      const y = ts.getFullYear();
-      const m = pad2(ts.getMonth() + 1);
-      const d = pad2(ts.getDate());
-      const date = intra ? `${y}-${m}-${d} ${pad2(ts.getHours())}:${pad2(ts.getMinutes())}` : `${y}-${m}-${d}`;
-
-      const bar: OHLCVData = {
-        date,
-        open: parseFloat(k.o),
-        high: parseFloat(k.h),
-        low: parseFloat(k.l),
-        close: parseFloat(k.c),
-        volume: parseFloat(k.v),
-      };
-      onUpdate(bar, k.x);
+      ws = new WebSocket(`${BINANCE_WS}/${stream}`);
     } catch {
-      /* ignore parse errors */
+      scheduleReconnect();
+      return;
     }
-  };
+
+    ws.onopen = () => {
+      reconnectDelay = 1000; // reset on successful connection
+    };
+
+    ws.onmessage = (event) => {
+      if (disposed) return;
+      try {
+        const msg: BinanceKlineEvent = JSON.parse(event.data);
+        if (msg.e !== 'kline') return;
+        const k = msg.k;
+        const ts = new Date(k.t);
+        const intra = isCryptoIntraday(interval);
+        const y = ts.getFullYear();
+        const m = pad2(ts.getMonth() + 1);
+        const d = pad2(ts.getDate());
+        const date = intra ? `${y}-${m}-${d} ${pad2(ts.getHours())}:${pad2(ts.getMinutes())}` : `${y}-${m}-${d}`;
+
+        const bar: OHLCVData = {
+          date,
+          open: parseFloat(k.o),
+          high: parseFloat(k.h),
+          low: parseFloat(k.l),
+          close: parseFloat(k.c),
+          volume: parseFloat(k.v),
+        };
+        onUpdate(bar, k.x);
+      } catch {
+        /* ignore parse errors */
+      }
+    };
+
+    ws.onerror = () => {
+      /* handled by onclose */
+    };
+
+    ws.onclose = () => {
+      if (!disposed) scheduleReconnect();
+    };
+  }
+
+  function scheduleReconnect() {
+    if (disposed) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+      connect();
+    }, reconnectDelay);
+  }
+
+  connect();
 
   return () => {
     disposed = true;
-    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+    clearTimeout(reconnectTimer);
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       ws.close();
     }
   };
@@ -263,42 +299,78 @@ export interface BinanceMiniTickerEvent {
 }
 
 /**
- * Connect to Binance all-market miniTicker stream.
+ * Connect to Binance all-market miniTicker stream with auto-reconnect.
  * Calls `onUpdate` with a map of symbol → ticker on each batch (~1s).
  * Returns a cleanup function.
  */
 export function subscribeMiniTickers(onUpdate: (tickers: Map<string, CryptoTicker>) => void): () => void {
-  const ws = new WebSocket(`${BINANCE_WS}/!miniTicker@arr`);
   let disposed = false;
+  let ws: WebSocket | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout>;
+  let reconnectDelay = 1000;
+  const MAX_RECONNECT_DELAY = 30000;
 
-  ws.onmessage = (event) => {
+  function connect() {
     if (disposed) return;
     try {
-      const arr: BinanceMiniTickerEvent[] = JSON.parse(event.data);
-      const map = new Map<string, CryptoTicker>();
-      for (const t of arr) {
-        const close = parseFloat(t.c);
-        const open = parseFloat(t.o);
-        const pct = open > 0 ? ((close - open) / open) * 100 : 0;
-        map.set(t.s, {
-          symbol: t.s,
-          price: close,
-          priceChangePercent: pct,
-          volume: parseFloat(t.v),
-          high: parseFloat(t.h),
-          low: parseFloat(t.l),
-          quoteVolume: parseFloat(t.q),
-        });
-      }
-      onUpdate(map);
+      ws = new WebSocket(`${BINANCE_WS}/!miniTicker@arr`);
     } catch {
-      /* ignore */
+      scheduleReconnect();
+      return;
     }
-  };
+
+    ws.onopen = () => {
+      reconnectDelay = 1000;
+    };
+
+    ws.onmessage = (event) => {
+      if (disposed) return;
+      try {
+        const arr: BinanceMiniTickerEvent[] = JSON.parse(event.data);
+        const map = new Map<string, CryptoTicker>();
+        for (const t of arr) {
+          const close = parseFloat(t.c);
+          const open = parseFloat(t.o);
+          const pct = open > 0 ? ((close - open) / open) * 100 : 0;
+          map.set(t.s, {
+            symbol: t.s,
+            price: close,
+            priceChangePercent: pct,
+            volume: parseFloat(t.v),
+            high: parseFloat(t.h),
+            low: parseFloat(t.l),
+            quoteVolume: parseFloat(t.q),
+          });
+        }
+        onUpdate(map);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    ws.onerror = () => {
+      /* handled by onclose */
+    };
+
+    ws.onclose = () => {
+      if (!disposed) scheduleReconnect();
+    };
+  }
+
+  function scheduleReconnect() {
+    if (disposed) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+      connect();
+    }, reconnectDelay);
+  }
+
+  connect();
 
   return () => {
     disposed = true;
-    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+    clearTimeout(reconnectTimer);
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       ws.close();
     }
   };

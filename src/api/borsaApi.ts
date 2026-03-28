@@ -69,6 +69,24 @@ export async function fetchHistory(
 
 const BACKEND_URL = 'http://localhost:8001';
 
+/** Check if backend is reachable (cached result) */
+let _backendAvailable: boolean | null = null;
+async function isBackendAvailable(): Promise<boolean> {
+  if (_backendAvailable !== null) return _backendAvailable;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    await fetch(`${BACKEND_URL}/api/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+    _backendAvailable = true;
+  } catch {
+    _backendAvailable = false;
+  }
+  // Re-check every 60s
+  setTimeout(() => { _backendAvailable = null; }, 60_000);
+  return _backendAvailable;
+}
+
 const INTERVAL_PERIOD_MAP: Record<string, string> = {
   '1m': '1d',
   '5m': '5d',
@@ -78,12 +96,17 @@ const INTERVAL_PERIOD_MAP: Record<string, string> = {
 };
 
 export async function fetchHistoryLive(symbol: string, period?: string, interval: string = '1d'): Promise<OHLCVData[]> {
+  if (!(await isBackendAvailable())) return [];
   const effectivePeriod = period ?? INTERVAL_PERIOD_MAP[interval] ?? '1y';
   const url = `${BACKEND_URL}/api/history/${encodeURIComponent(symbol)}?period=${effectivePeriod}&interval=${interval}`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json.data ?? [];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 // ── Financials ────────────────────────────────
@@ -500,6 +523,9 @@ export interface MLTrainResponse {
 }
 
 export async function trainMLModel(req: MLTrainRequest): Promise<MLTrainResponse> {
+  if (!(await isBackendAvailable())) {
+    throw new Error('ML backend sunucusu çalışmıyor. Lütfen backend\'i başlatın: cd backend && python main.py');
+  }
   const res = await fetch(`${BACKEND_URL}/api/ml/train`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -514,5 +540,10 @@ export async function trainMLModel(req: MLTrainRequest): Promise<MLTrainResponse
 }
 
 export async function clearMLCache(): Promise<void> {
-  await fetch(`${BACKEND_URL}/api/ml/cache`, { method: 'DELETE' });
+  if (!(await isBackendAvailable())) return;
+  try {
+    await fetch(`${BACKEND_URL}/api/ml/cache`, { method: 'DELETE' });
+  } catch {
+    /* backend offline — ignore */
+  }
 }
